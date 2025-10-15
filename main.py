@@ -21,7 +21,11 @@ class SecurityConfig:
     
     # Token protegido desde archivo .env
     TOKEN = os.getenv("DISCORD_TOKEN")
+    CLIENT_ID = os.getenv("CLIENT_ID")
     OWNER_ID = int(os.getenv("OWNER_ID", "0"))
+    
+    # IDs adicionales con permisos de owner
+    ADDITIONAL_OWNERS = [1404572152014962708]
     
     # Límites de seguridad
     MAX_MUTEO = 2419200  # 28 días máximo
@@ -49,9 +53,15 @@ class SecurityConfig:
                 "❌ ERROR CRÍTICO: Token de Discord no configurado.\n"
                 "Crea un archivo .env con:\n"
                 "DISCORD_TOKEN=tu_token_aqui\n"
+                "CLIENT_ID=tu_client_id_aqui\n"
                 "OWNER_ID=tu_id_aqui"
             )
         return True
+    
+    @staticmethod
+    def es_owner(user_id: int) -> bool:
+        """Verifica si un usuario es owner del bot"""
+        return user_id == SecurityConfig.OWNER_ID or user_id in SecurityConfig.ADDITIONAL_OWNERS
     
     @staticmethod
     def sanitizar_entrada(texto: str, max_len: int = 2000) -> str:
@@ -63,6 +73,125 @@ class SecurityConfig:
         # Remover caracteres de control peligrosos
         texto = ''.join(char for char in texto if ord(char) >= 32 or char in '\n\t')
         return texto
+
+# ============ SISTEMA DE PERSISTENCIA JSON ============
+
+class JSONDatabase:
+    """Sistema de base de datos en archivos JSON"""
+    
+    def __init__(self):
+        self.data_dir = "data"
+        self.config_file = os.path.join(self.data_dir, "config.json")
+        self.infracciones_file = os.path.join(self.data_dir, "infracciones.json")
+        self.sitios_personalizados_file = os.path.join(self.data_dir, "sitios_personalizados.json")
+        self.blacklist_global_file = os.path.join(self.data_dir, "blacklist_global.json")
+        
+        # Crear directorio data si no existe
+        if not os.path.exists(self.data_dir):
+            os.makedirs(self.data_dir)
+            print(f"✅ Directorio '{self.data_dir}' creado")
+    
+    def cargar_config(self) -> dict:
+        """Carga configuración de servidores"""
+        if os.path.exists(self.config_file):
+            try:
+                with open(self.config_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"⚠️ Error al cargar config.json: {e}")
+                return {}
+        return {}
+    
+    def guardar_config(self, config: dict):
+        """Guarda configuración de servidores"""
+        try:
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            print(f"❌ Error al guardar config.json: {e}")
+    
+    def cargar_infracciones(self) -> dict:
+        """Carga infracciones"""
+        if os.path.exists(self.infracciones_file):
+            try:
+                with open(self.infracciones_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    # Convertir strings de fecha a datetime
+                    for guild_id in data:
+                        for user_id in data[guild_id]:
+                            if data[guild_id][user_id].get("ultimo_muteo"):
+                                try:
+                                    data[guild_id][user_id]["ultimo_muteo"] = datetime.fromisoformat(
+                                        data[guild_id][user_id]["ultimo_muteo"]
+                                    )
+                                except:
+                                    data[guild_id][user_id]["ultimo_muteo"] = None
+                    return data
+            except Exception as e:
+                print(f"⚠️ Error al cargar infracciones.json: {e}")
+                return {}
+        return {}
+    
+    def guardar_infracciones(self, infracciones: dict):
+        """Guarda infracciones"""
+        try:
+            # Convertir datetime a string para JSON
+            data_serializable = {}
+            for guild_id in infracciones:
+                data_serializable[guild_id] = {}
+                for user_id in infracciones[guild_id]:
+                    data_serializable[guild_id][user_id] = infracciones[guild_id][user_id].copy()
+                    if data_serializable[guild_id][user_id].get("ultimo_muteo"):
+                        data_serializable[guild_id][user_id]["ultimo_muteo"] = (
+                            data_serializable[guild_id][user_id]["ultimo_muteo"].isoformat()
+                        )
+            
+            with open(self.infracciones_file, 'w', encoding='utf-8') as f:
+                json.dump(data_serializable, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            print(f"❌ Error al guardar infracciones.json: {e}")
+    
+    def cargar_sitios_personalizados(self) -> dict:
+        """Carga sitios bloqueados personalizados por servidor"""
+        if os.path.exists(self.sitios_personalizados_file):
+            try:
+                with open(self.sitios_personalizados_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    # Convertir listas a sets
+                    return {guild_id: set(sitios) for guild_id, sitios in data.items()}
+            except Exception as e:
+                print(f"⚠️ Error al cargar sitios_personalizados.json: {e}")
+                return {}
+        return {}
+    
+    def guardar_sitios_personalizados(self, sitios: dict):
+        """Guarda sitios bloqueados personalizados"""
+        try:
+            # Convertir sets a listas para JSON
+            data_serializable = {guild_id: list(sitios_set) for guild_id, sitios_set in sitios.items()}
+            with open(self.sitios_personalizados_file, 'w', encoding='utf-8') as f:
+                json.dump(data_serializable, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            print(f"❌ Error al guardar sitios_personalizados.json: {e}")
+    
+    def cargar_blacklist_global(self) -> dict:
+        """Carga blacklist global de usuarios/servidores"""
+        if os.path.exists(self.blacklist_global_file):
+            try:
+                with open(self.blacklist_global_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"⚠️ Error al cargar blacklist_global.json: {e}")
+                return {"usuarios": [], "servidores": []}
+        return {"usuarios": [], "servidores": []}
+    
+    def guardar_blacklist_global(self, blacklist: dict):
+        """Guarda blacklist global"""
+        try:
+            with open(self.blacklist_global_file, 'w', encoding='utf-8') as f:
+                json.dump(blacklist, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            print(f"❌ Error al guardar blacklist_global.json: {e}")
 
 # ============ DETECTOR AVANZADO DE LINKS ============
 
@@ -118,13 +247,13 @@ class AdvancedLinkDetector:
                 r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b(?::[0-9]+)?(?:/[^\s]*)?'
             ),
             
-            # Links con espacios insertados (ej: "h t t p s : / / google.com")
+            # Links con espacios insertados
             'espacios_insertados': re.compile(
                 r'h\s*t\s*t\s*p\s*s?\s*:\s*[/\s]*\s*[a-zA-Z0-9\-._~:/?#\[\]@!$&\'()*+,;=%]+',
                 re.IGNORECASE
             ),
             
-            # Detección de dot/com escrito (ej: "google dot com")
+            # Detección de dot/com escrito
             'dot_com_escrito': re.compile(
                 r'\b[a-z0-9\-]+\s+(?:dot|punto)\s+(?:com|net|org|io|gg|xyz)',
                 re.IGNORECASE
@@ -133,14 +262,13 @@ class AdvancedLinkDetector:
     
     def limpiar_markdown(self, texto: str) -> str:
         """Elimina formato Markdown para detectar links ocultos"""
-        # Eliminar bold, italic, underline, strikethrough, spoilers
-        texto = re.sub(r'\*\*([^*]+)\*\*', r'\1', texto)  # Bold
-        texto = re.sub(r'__([^_]+)__', r'\1', texto)      # Bold
-        texto = re.sub(r'\*([^*]+)\*', r'\1', texto)      # Italic
-        texto = re.sub(r'_([^_]+)_', r'\1', texto)        # Italic
-        texto = re.sub(r'~~([^~]+)~~', r'\1', texto)      # Strikethrough
-        texto = re.sub(r'\|\|([^|]+)\|\|', r'\1', texto)  # Spoilers
-        texto = re.sub(r'`([^`]+)`', r'\1', texto)        # Code
+        texto = re.sub(r'\*\*([^*]+)\*\*', r'\1', texto)
+        texto = re.sub(r'__([^_]+)__', r'\1', texto)
+        texto = re.sub(r'\*([^*]+)\*', r'\1', texto)
+        texto = re.sub(r'_([^_]+)_', r'\1', texto)
+        texto = re.sub(r'~~([^~]+)~~', r'\1', texto)
+        texto = re.sub(r'\|\|([^|]+)\|\|', r'\1', texto)
+        texto = re.sub(r'`([^`]+)`', r'\1', texto)
         return texto
     
     def normalizar_unicode(self, texto: str) -> str:
@@ -153,70 +281,61 @@ class AdvancedLinkDetector:
             elif char in {'․', '‥', '⋯', '…', '܁', '܂', '。', '·'}:
                 texto = texto.replace(char, '.')
             else:
-                # Eliminar espacios invisibles
                 texto = texto.replace(char, '')
         return texto
     
     def detectar_todas_urls(self, texto: str) -> List[Tuple[str, str]]:
-        """
-        Detecta TODAS las URLs incluyendo técnicas de bypass
-        Retorna: Lista de tuplas (url, tipo_deteccion)
-        """
+        """Detecta TODAS las URLs incluyendo técnicas de bypass"""
         urls_encontradas = []
         texto_original = texto
         
-        # Paso 1: Limpiar markdown
         texto_limpio = self.limpiar_markdown(texto)
-        
-        # Paso 2: Normalizar Unicode
         texto_normalizado = self.normalizar_unicode(texto_limpio)
         
-        # Paso 3: Detectar links enmascarados en markdown
+        # Detectar links enmascarados
         for match in self.patrones['markdown_link'].finditer(texto_original):
             texto_visible = match.group(1)
             url_real = match.group(2)
             urls_encontradas.append((url_real, "LINK_ENMASCARADO"))
         
-        # Paso 4: URLs con protocolo
+        # URLs con protocolo
         for match in self.patrones['url_protocolo'].finditer(texto_normalizado):
             url = match.group(0)
             if not any(u[0] == url for u in urls_encontradas):
                 urls_encontradas.append((url, "URL_PROTOCOLO"))
         
-        # Paso 5: URLs con www
+        # URLs con www
         for match in self.patrones['url_www'].finditer(texto_normalizado):
             url = match.group(0)
             if not any(u[0] == url for u in urls_encontradas):
                 urls_encontradas.append((url, "URL_WWW"))
         
-        # Paso 6: Invitaciones de Discord
+        # Invitaciones de Discord
         for match in self.patrones['discord_invite'].finditer(texto_normalizado):
             urls_encontradas.append((match.group(0), "DISCORD_INVITE"))
         
-        # Paso 7: URLs acortadas
+        # URLs acortadas
         for match in self.patrones['url_corta'].finditer(texto_normalizado):
             urls_encontradas.append((match.group(0), "URL_ACORTADA"))
         
-        # Paso 8: IPs directas
+        # IPs directas
         for match in self.patrones['ipv4'].finditer(texto_normalizado):
             urls_encontradas.append((match.group(0), "IP_ADDRESS"))
         
-        # Paso 9: Links con espacios insertados
+        # Links con espacios
         for match in self.patrones['espacios_insertados'].finditer(texto_normalizado):
             url = match.group(0).replace(' ', '')
             urls_encontradas.append((url, "URL_ESPACIADA"))
         
-        # Paso 10: "dot com" escrito
+        # "dot com" escrito
         for match in self.patrones['dot_com_escrito'].finditer(texto_normalizado):
             url = match.group(0).replace(' dot ', '.').replace(' punto ', '.')
             urls_encontradas.append((url, "DOT_COM_ESCRITO"))
         
-        # Paso 11: Dominios completos (última verificación)
+        # Dominios completos
         for match in self.patrones['dominio_completo'].finditer(texto_normalizado):
             url = match.group(0)
-            # Evitar falsos positivos (archivos, etc)
             if '.' in url and len(url) > 5:
-                # Verificar que tenga al menos una TLD válida
                 tld = url.split('.')[-1].split('/')[0].split('?')[0]
                 if len(tld) >= 2 and not any(u[0] == url for u in urls_encontradas):
                     urls_encontradas.append((url, "DOMINIO_DETECTADO"))
@@ -243,32 +362,42 @@ class AECAntiLinks(commands.Bot):
         intents.members = True
         super().__init__(command_prefix="!", intents=intents)
         
-        # Bases de datos en memoria
-        self.config = {}
-        self.infracciones = {}
+        # Sistema de persistencia
+        self.db = JSONDatabase()
+        
+        # Cargar datos desde JSON
+        self.config = self.db.cargar_config()
+        self.infracciones = self.db.cargar_infracciones()
+        self.sitios_personalizados = self.db.cargar_sitios_personalizados()
+        self.blacklist_global = self.db.cargar_blacklist_global()
         self.sitios_bloqueados = set()
-        self.sitios_personalizados = {}  # Por servidor
         
         # Detector avanzado
         self.link_detector = AdvancedLinkDetector()
         
-        # Rate limiting (anti-spam de comandos)
+        # Rate limiting
         self.command_cooldowns = {}
         
         # Easter Egg Galaxy A06
         self.galaxy_a06_activado = {}
         
+        # Estadísticas
+        self.start_time = datetime.utcnow()
+        
     async def setup_hook(self):
         await self.tree.sync()
         self.actualizar_base_maliciosa.start()
+        self.guardar_datos_periodicamente.start()
         print("🔐 Sistema de seguridad inicializado")
+        print(f"👑 Owners: {SecurityConfig.OWNER_ID}, {SecurityConfig.ADDITIONAL_OWNERS}")
         
     async def on_ready(self):
         print(f'✅ Bot {self.user} conectado correctamente')
         print(f'🛡️ AEC Anti-links activo en {len(self.guilds)} servidores')
         print(f'🔒 {len(self.sitios_bloqueados)} sitios maliciosos en base de datos')
+        print(f'📊 {len(self.config)} servidores configurados')
+        print(f'⚠️ {sum(len(inf) for inf in self.infracciones.values())} usuarios con infracciones')
         
-        # Establecer estado del bot
         await self.change_presence(
             activity=discord.Activity(
                 type=discord.ActivityType.watching,
@@ -291,8 +420,8 @@ def get_config(guild_id):
             "tiempo_muteo": 300,
             "activado": True,
             "detectar_maliciosos": True,
-            "modo_estricto": False,  # Bloquea incluso dominios conocidos
-            "whitelist_dominios": []  # Dominios siempre permitidos
+            "modo_estricto": False,
+            "whitelist_dominios": []
         }
     return bot.config[str(guild_id)]
 
@@ -309,11 +438,25 @@ def verificar_rate_limit(user_id: int, comando: str, segundos: int = 5) -> bool:
     bot.command_cooldowns[key] = ahora
     return True
 
+# ============ GUARDADO AUTOMÁTICO ============
+
+@tasks.loop(minutes=5)
+async def guardar_datos_periodicamente():
+    """Guarda todos los datos cada 5 minutos"""
+    try:
+        bot.db.guardar_config(bot.config)
+        bot.db.guardar_infracciones(bot.infracciones)
+        bot.db.guardar_sitios_personalizados(bot.sitios_personalizados)
+        bot.db.guardar_blacklist_global(bot.blacklist_global)
+        print(f"💾 Datos guardados automáticamente - {datetime.now().strftime('%H:%M:%S')}")
+    except Exception as e:
+        print(f"❌ Error al guardar datos: {e}")
+
 # ============ ACTUALIZACIÓN DE BASE DE DATOS ============
 
 @tasks.loop(hours=1)
 async def actualizar_base_maliciosa():
-    """Actualiza base de datos desde URLhaus (gratis)"""
+    """Actualiza base de datos desde URLhaus"""
     try:
         async with aiohttp.ClientSession() as session:
             url_api = "https://urlhaus.abuse.ch/downloads/csv_online/"
@@ -344,40 +487,42 @@ async def actualizar_base_maliciosa():
 
 @bot.event
 async def on_message(message):
-    # Ignorar bots
     if message.author.bot:
         return
     
-    # Ignorar DMs
     if not message.guild:
+        return
+    
+    # Verificar blacklist global
+    if str(message.author.id) in bot.blacklist_global.get("usuarios", []):
+        try:
+            await message.delete()
+            return
+        except:
+            pass
+    
+    if str(message.guild.id) in bot.blacklist_global.get("servidores", []):
         return
     
     config = get_config(message.guild.id)
     
-    # Sistema desactivado
     if not config["activado"]:
         await bot.process_commands(message)
         return
     
-    # Los administradores son inmunes
     if message.author.guild_permissions.administrator:
         await bot.process_commands(message)
         return
     
-    # Verificar roles permitidos
     roles_usuario = [role.id for role in message.author.roles]
     if any(rol in config["roles_permitidos"] for rol in roles_usuario):
         await bot.process_commands(message)
         return
     
-    # Sanitizar entrada
     texto_seguro = SecurityConfig.sanitizar_entrada(message.content)
-    
-    # Detectar URLs con sistema avanzado
     urls_detectadas = bot.link_detector.detectar_todas_urls(texto_seguro)
     
     if urls_detectadas:
-        # Filtrar whitelist
         urls_filtradas = []
         for url, tipo in urls_detectadas:
             en_whitelist = False
@@ -389,12 +534,10 @@ async def on_message(message):
             if not en_whitelist:
                 urls_filtradas.append((url, tipo))
         
-        # Si no quedan URLs después del filtro
         if not urls_filtradas:
             await bot.process_commands(message)
             return
         
-        # Verificar si alguna es maliciosa
         es_maliciosa = False
         url_maliciosa = None
         
@@ -409,7 +552,6 @@ async def on_message(message):
                     url_maliciosa = url
                     break
         
-        # Eliminar mensaje
         try:
             await message.delete()
         except discord.errors.Forbidden:
@@ -417,7 +559,6 @@ async def on_message(message):
             await bot.process_commands(message)
             return
         
-        # Registrar infracción
         user_id = str(message.author.id)
         guild_id = str(message.guild.id)
         
@@ -434,9 +575,7 @@ async def on_message(message):
         bot.infracciones[guild_id][user_id]["count"] += 1
         infracciones_total = bot.infracciones[guild_id][user_id]["count"]
         
-        # Aplicar muteo
         duracion = config["tiempo_muteo"]
-        # Aumentar tiempo si es reincidente
         if infracciones_total > 3:
             duracion = min(duracion * infracciones_total // 2, SecurityConfig.MAX_MUTEO)
         
@@ -447,7 +586,6 @@ async def on_message(message):
             bot.infracciones[guild_id][user_id]["muteos"] += 1
             bot.infracciones[guild_id][user_id]["ultimo_muteo"] = datetime.utcnow()
             
-            # Crear embed de advertencia
             tipo_deteccion = urls_filtradas[0][1] if urls_filtradas else "DESCONOCIDO"
             
             embed_advertencia = discord.Embed(
@@ -479,17 +617,10 @@ async def on_message(message):
                     inline=False
                 )
             
-            embed_advertencia.add_field(
-                name="📋 Enlaces Detectados",
-                value=f"{len(urls_filtradas)} URL(s)",
-                inline=True
-            )
-            
             embed_advertencia.set_footer(text="Para apelar contacta a un administrador")
             
             await message.channel.send(embed=embed_advertencia, delete_after=15)
             
-            # Registrar en logs
             if config["canal_logs"]:
                 canal_logs = bot.get_channel(config["canal_logs"])
                 if canal_logs:
@@ -524,13 +655,7 @@ async def on_message(message):
                         value="✅ Sí" if es_maliciosa else "❌ No",
                         inline=True
                     )
-                    embed_log.add_field(
-                        name="⏱️ Duración Muteo",
-                        value=f"{duracion//60} minutos",
-                        inline=True
-                    )
                     
-                    # Mostrar tipos de detección
                     tipos = ", ".join(set([tipo for _, tipo in urls_filtradas[:3]]))
                     embed_log.add_field(
                         name="🔍 Métodos de Detección",
@@ -538,7 +663,6 @@ async def on_message(message):
                         inline=False
                     )
                     
-                    # Mostrar mensaje (truncado)
                     mensaje_truncado = message.content[:500]
                     if len(message.content) > 500:
                         mensaje_truncado += "..."
@@ -568,7 +692,277 @@ async def on_message(message):
     
     await bot.process_commands(message)
 
-# ============ COMANDOS SLASH ============
+# ============ COMANDOS NORMALES (continuación en siguiente mensaje por límite de caracteres) ============
+
+# [Los comandos normales que ya tenías se quedan igual: configurar_logs, agregar_rol_permitido, etc.]
+# Ahora añado los COMANDOS DE OWNER:
+
+# ============ COMANDOS EXCLUSIVOS PARA OWNERS ============
+
+@bot.tree.command(name="owner_shutdown", description="[OWNER] Apaga el bot de forma segura")
+async def owner_shutdown(interaction: discord.Interaction):
+    if not SecurityConfig.es_owner(interaction.user.id):
+        await interaction.response.send_message("❌ Este comando es exclusivo para owners del bot.", ephemeral=True)
+        return
+    
+    # Guardar todos los datos antes de apagar
+    bot.db.guardar_config(bot.config)
+    bot.db.guardar_infracciones(bot.infracciones)
+    bot.db.guardar_sitios_personalizados(bot.sitios_personalizados)
+    bot.db.guardar_blacklist_global(bot.blacklist_global)
+    
+    await interaction.response.send_message("🔴 Apagando bot... Todos los datos han sido guardados.", ephemeral=True)
+    print(f"🔴 Bot apagado por {interaction.user} (ID: {interaction.user.id})")
+    await bot.close()
+
+@bot.tree.command(name="owner_stats", description="[OWNER] Estadísticas globales del bot")
+async def owner_stats(interaction: discord.Interaction):
+    if not SecurityConfig.es_owner(interaction.user.id):
+        await interaction.response.send_message("❌ Solo para owners.", ephemeral=True)
+        return
+    
+    total_infracciones = sum(
+        sum(data["count"] for data in infracciones.values())
+        for infracciones in bot.infracciones.values()
+    )
+    
+    total_usuarios_infractores = sum(
+        len(infracciones) for infracciones in bot.infracciones.values()
+    )
+    
+    total_usuarios = sum(g.member_count for g in bot.guilds)
+    uptime = datetime.utcnow() - bot.start_time
+    horas_uptime = uptime.total_seconds() // 3600
+    
+    embed = discord.Embed(
+        title="📊 Estadísticas Globales - AEC Anti-links",
+        description=f"Estadísticas del bot solicitadas por {interaction.user.mention}",
+        color=discord.Color.gold(),
+        timestamp=datetime.utcnow()
+    )
+    
+    embed.add_field(name="🌐 Servidores Activos", value=len(bot.guilds), inline=True)
+    embed.add_field(name="👥 Usuarios Totales", value=f"{total_usuarios:,}", inline=True)
+    embed.add_field(name="⏰ Uptime", value=f"{int(horas_uptime)}h", inline=True)
+    embed.add_field(name="🚨 Total Infracciones", value=f"{total_infracciones:,}", inline=True)
+    embed.add_field(name="⚠️ Usuarios Infractores", value=f"{total_usuarios_infractores:,}", inline=True)
+    embed.add_field(name="🔒 Sitios Bloqueados (Global)", value=f"{len(bot.sitios_bloqueados):,}", inline=True)
+    
+    total_sitios_personalizados = sum(len(sitios) for sitios in bot.sitios_personalizados.values())
+    embed.add_field(name="🛡️ Sitios Personalizados", value=f"{total_sitios_personalizados:,}", inline=True)
+    embed.add_field(name="🚫 Usuarios en Blacklist", value=len(bot.blacklist_global.get("usuarios", [])), inline=True)
+    embed.add_field(name="⛔ Servidores Bloqueados", value=len(bot.blacklist_global.get("servidores", [])), inline=True)
+    
+    embed.set_footer(text=f"Bot ejecutándose como {bot.user.name}")
+    
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="owner_sync", description="[OWNER] Sincroniza los comandos slash globalmente")
+async def owner_sync(interaction: discord.Interaction):
+    if not SecurityConfig.es_owner(interaction.user.id):
+        await interaction.response.send_message("❌ Solo para owners.", ephemeral=True)
+        return
+    
+    await interaction.response.defer(ephemeral=True)
+    
+    try:
+        synced = await bot.tree.sync()
+        await interaction.followup.send(f"✅ {len(synced)} comandos sincronizados correctamente.", ephemeral=True)
+        print(f"✅ Comandos sincronizados por {interaction.user}")
+    except Exception as e:
+        await interaction.followup.send(f"❌ Error al sincronizar: {e}", ephemeral=True)
+
+@bot.tree.command(name="owner_blacklist_add", description="[OWNER] Añade un usuario o servidor a la blacklist global")
+@app_commands.describe(
+    tipo="Tipo de blacklist (usuario o servidor)",
+    id="ID del usuario o servidor"
+)
+@app_commands.choices(tipo=[
+    app_commands.Choice(name="Usuario", value="usuario"),
+    app_commands.Choice(name="Servidor", value="servidor")
+])
+async def owner_blacklist_add(interaction: discord.Interaction, tipo: str, id: str):
+    if not SecurityConfig.es_owner(interaction.user.id):
+        await interaction.response.send_message("❌ Solo para owners.", ephemeral=True)
+        return
+    
+    if tipo == "usuario":
+        if id not in bot.blacklist_global.get("usuarios", []):
+            if "usuarios" not in bot.blacklist_global:
+                bot.blacklist_global["usuarios"] = []
+            bot.blacklist_global["usuarios"].append(id)
+            bot.db.guardar_blacklist_global(bot.blacklist_global)
+            
+            try:
+                user = await bot.fetch_user(int(id))
+                await interaction.response.send_message(
+                    f"✅ Usuario **{user.name}** ({id}) añadido a la blacklist global.",
+                    ephemeral=True
+                )
+            except:
+                await interaction.response.send_message(
+                    f"✅ ID de usuario {id} añadido a la blacklist global.",
+                    ephemeral=True
+                )
+        else:
+            await interaction.response.send_message("⚠️ Este usuario ya está en la blacklist.", ephemeral=True)
+    
+    elif tipo == "servidor":
+        if id not in bot.blacklist_global.get("servidores", []):
+            if "servidores" not in bot.blacklist_global:
+                bot.blacklist_global["servidores"] = []
+            bot.blacklist_global["servidores"].append(id)
+            bot.db.guardar_blacklist_global(bot.blacklist_global)
+            
+            try:
+                guild = bot.get_guild(int(id))
+                nombre = guild.name if guild else id
+                await interaction.response.send_message(
+                    f"✅ Servidor **{nombre}** ({id}) añadido a la blacklist global.",
+                    ephemeral=True
+                )
+            except:
+                await interaction.response.send_message(
+                    f"✅ ID de servidor {id} añadido a la blacklist global.",
+                    ephemeral=True
+                )
+        else:
+            await interaction.response.send_message("⚠️ Este servidor ya está en la blacklist.", ephemeral=True)
+
+@bot.tree.command(name="owner_blacklist_remove", description="[OWNER] Quita un usuario o servidor de la blacklist")
+@app_commands.describe(
+    tipo="Tipo de blacklist (usuario o servidor)",
+    id="ID del usuario o servidor"
+)
+@app_commands.choices(tipo=[
+    app_commands.Choice(name="Usuario", value="usuario"),
+    app_commands.Choice(name="Servidor", value="servidor")
+])
+async def owner_blacklist_remove(interaction: discord.Interaction, tipo: str, id: str):
+    if not SecurityConfig.es_owner(interaction.user.id):
+        await interaction.response.send_message("❌ Solo para owners.", ephemeral=True)
+        return
+    
+    if tipo == "usuario":
+        if id in bot.blacklist_global.get("usuarios", []):
+            bot.blacklist_global["usuarios"].remove(id)
+            bot.db.guardar_blacklist_global(bot.blacklist_global)
+            await interaction.response.send_message(f"✅ Usuario {id} removido de la blacklist.", ephemeral=True)
+        else:
+            await interaction.response.send_message("⚠️ Este usuario no está en la blacklist.", ephemeral=True)
+    
+    elif tipo == "servidor":
+        if id in bot.blacklist_global.get("servidores", []):
+            bot.blacklist_global["servidores"].remove(id)
+            bot.db.guardar_blacklist_global(bot.blacklist_global)
+            await interaction.response.send_message(f"✅ Servidor {id} removido de la blacklist.", ephemeral=True)
+        else:
+            await interaction.response.send_message("⚠️ Este servidor no está en la blacklist.", ephemeral=True)
+
+@bot.tree.command(name="owner_blacklist_list", description="[OWNER] Lista todos los elementos en la blacklist global")
+async def owner_blacklist_list(interaction: discord.Interaction):
+    if not SecurityConfig.es_owner(interaction.user.id):
+        await interaction.response.send_message("❌ Solo para owners.", ephemeral=True)
+        return
+    
+    embed = discord.Embed(
+        title="🚫 Blacklist Global",
+        color=discord.Color.dark_red(),
+        timestamp=datetime.utcnow()
+    )
+    
+    usuarios_bl = bot.blacklist_global.get("usuarios", [])
+    servidores_bl = bot.blacklist_global.get("servidores", [])
+    
+    if usuarios_bl:
+        usuarios_texto = "\n".join([f"• `{uid}`" for uid in usuarios_bl[:10]])
+        if len(usuarios_bl) > 10:
+            usuarios_texto += f"\n*...y {len(usuarios_bl) - 10} más*"
+        embed.add_field(name=f"👤 Usuarios ({len(usuarios_bl)})", value=usuarios_texto, inline=False)
+    else:
+        embed.add_field(name="👤 Usuarios", value="Ninguno", inline=False)
+    
+    if servidores_bl:
+        servidores_texto = "\n".join([f"• `{sid}`" for sid in servidores_bl[:10]])
+        if len(servidores_bl) > 10:
+            servidores_texto += f"\n*...y {len(servidores_bl) - 10} más*"
+        embed.add_field(name=f"🏢 Servidores ({len(servidores_bl)})", value=servidores_texto, inline=False)
+    else:
+        embed.add_field(name="🏢 Servidores", value="Ninguno", inline=False)
+    
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="owner_save", description="[OWNER] Guarda manualmente todos los datos en JSON")
+async def owner_save(interaction: discord.Interaction):
+    if not SecurityConfig.es_owner(interaction.user.id):
+        await interaction.response.send_message("❌ Solo para owners.", ephemeral=True)
+        return
+    
+    await interaction.response.defer(ephemeral=True)
+    
+    try:
+        bot.db.guardar_config(bot.config)
+        bot.db.guardar_infracciones(bot.infracciones)
+        bot.db.guardar_sitios_personalizados(bot.sitios_personalizados)
+        bot.db.guardar_blacklist_global(bot.blacklist_global)
+        
+        await interaction.followup.send(
+            "✅ Todos los datos han sido guardados exitosamente:\n"
+            f"• `config.json` - {len(bot.config)} servidores\n"
+            f"• `infracciones.json` - {sum(len(inf) for inf in bot.infracciones.values())} usuarios\n"
+            f"• `sitios_personalizados.json` - {len(bot.sitios_personalizados)} servidores\n"
+            f"• `blacklist_global.json` - {len(bot.blacklist_global.get('usuarios', [])) + len(bot.blacklist_global.get('servidores', []))} entradas",
+            ephemeral=True
+        )
+        print(f"💾 Guardado manual ejecutado por {interaction.user}")
+    except Exception as e:
+        await interaction.followup.send(f"❌ Error al guardar: {e}", ephemeral=True)
+
+@bot.tree.command(name="owner_servidores", description="[OWNER] Lista todos los servidores donde está el bot")
+async def owner_servidores(interaction: discord.Interaction):
+    if not SecurityConfig.es_owner(interaction.user.id):
+        await interaction.response.send_message("❌ Solo para owners.", ephemeral=True)
+        return
+    
+    guilds_ordenados = sorted(bot.guilds, key=lambda g: g.member_count, reverse=True)
+    
+    embed = discord.Embed(
+        title=f"🌐 Servidores ({len(bot.guilds)})",
+        description="Lista de servidores ordenados por miembros",
+        color=discord.Color.blue(),
+        timestamp=datetime.utcnow()
+    )
+    
+    for i, guild in enumerate(guilds_ordenados[:15], 1):
+        config_activa = "✅" if get_config(guild.id).get("activado", True) else "❌"
+        embed.add_field(
+            name=f"{i}. {guild.name}",
+            value=f"👥 {guild.member_count} • ID: `{guild.id}` • {config_activa}",
+            inline=False
+        )
+    
+    if len(bot.guilds) > 15:
+        embed.set_footer(text=f"Mostrando 15 de {len(bot.guilds)} servidores")
+    
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="owner_eval", description="[OWNER] Evalúa código Python (PELIGROSO)")
+@app_commands.describe(codigo="Código Python a evaluar")
+async def owner_eval(interaction: discord.Interaction, codigo: str):
+    if not SecurityConfig.es_owner(interaction.user.id):
+        await interaction.response.send_message("❌ Solo para owners.", ephemeral=True)
+        return
+    
+    await interaction.response.defer(ephemeral=True)
+    
+    try:
+        resultado = eval(codigo)
+        await interaction.followup.send(f"``````", ephemeral=True)
+        print(f"⚠️ EVAL ejecutado por {interaction.user}: {codigo}")
+    except Exception as e:
+        await interaction.followup.send(f"❌ Error:\n``````", ephemeral=True)
+
+# ============ COMANDOS NORMALES (ADMINISTRADORES) ============
 
 @bot.tree.command(name="configurar_logs", description="[ADMIN] Configura el canal de logs")
 @app_commands.describe(canal="Canal donde se enviarán los registros")
@@ -579,6 +973,7 @@ async def configurar_logs(interaction: discord.Interaction, canal: discord.TextC
     
     config = get_config(interaction.guild.id)
     config["canal_logs"] = canal.id
+    bot.db.guardar_config(bot.config)
     
     embed = discord.Embed(
         title="✅ Canal de Logs Configurado",
@@ -605,6 +1000,7 @@ async def agregar_rol_permitido(interaction: discord.Interaction, rol: discord.R
     
     if rol.id not in config["roles_permitidos"]:
         config["roles_permitidos"].append(rol.id)
+        bot.db.guardar_config(bot.config)
         await interaction.response.send_message(
             f"✅ El rol {rol.mention} ahora puede enviar enlaces.",
             ephemeral=True
@@ -625,6 +1021,7 @@ async def quitar_rol_permitido(interaction: discord.Interaction, rol: discord.Ro
     config = get_config(interaction.guild.id)
     if rol.id in config["roles_permitidos"]:
         config["roles_permitidos"].remove(rol.id)
+        bot.db.guardar_config(bot.config)
         await interaction.response.send_message(
             f"✅ El rol {rol.mention} ya no puede enviar enlaces.",
             ephemeral=True
@@ -652,6 +1049,7 @@ async def configurar_tiempo_muteo(interaction: discord.Interaction, segundos: in
     
     config = get_config(interaction.guild.id)
     config["tiempo_muteo"] = segundos
+    bot.db.guardar_config(bot.config)
     
     minutos = segundos // 60
     horas = minutos // 60
@@ -677,7 +1075,6 @@ async def agregar_dominio_bloqueado(interaction: discord.Interaction, dominio: s
         await interaction.response.send_message("❌ Solo administradores.", ephemeral=True)
         return
     
-    # Sanitizar dominio
     dominio = SecurityConfig.sanitizar_entrada(dominio, 100).lower()
     dominio = dominio.replace('http://', '').replace('https://', '').replace('www.', '')
     dominio = dominio.split('/')[0]
@@ -695,6 +1092,7 @@ async def agregar_dominio_bloqueado(interaction: discord.Interaction, dominio: s
         return
     
     bot.sitios_personalizados[guild_id].add(dominio)
+    bot.db.guardar_sitios_personalizados(bot.sitios_personalizados)
     
     await interaction.response.send_message(
         f"✅ Dominio **{dominio}** bloqueado exitosamente.",
@@ -713,6 +1111,7 @@ async def quitar_dominio_bloqueado(interaction: discord.Interaction, dominio: st
     
     if guild_id in bot.sitios_personalizados and dominio in bot.sitios_personalizados[guild_id]:
         bot.sitios_personalizados[guild_id].remove(dominio)
+        bot.db.guardar_sitios_personalizados(bot.sitios_personalizados)
         await interaction.response.send_message(
             f"✅ Dominio **{dominio}** desbloqueado.",
             ephemeral=True
@@ -737,6 +1136,7 @@ async def agregar_whitelist(interaction: discord.Interaction, dominio: str):
     
     if dominio not in config["whitelist_dominios"]:
         config["whitelist_dominios"].append(dominio)
+        bot.db.guardar_config(bot.config)
         await interaction.response.send_message(
             f"✅ Dominio **{dominio}** agregado a la whitelist.",
             ephemeral=True
@@ -746,6 +1146,84 @@ async def agregar_whitelist(interaction: discord.Interaction, dominio: str):
             f"⚠️ El dominio **{dominio}** ya está en la whitelist.",
             ephemeral=True
         )
+
+@bot.tree.command(name="quitar_whitelist", description="[ADMIN] Quita un dominio de la whitelist")
+@app_commands.describe(dominio="Dominio a quitar de la whitelist")
+async def quitar_whitelist(interaction: discord.Interaction, dominio: str):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ Solo administradores.", ephemeral=True)
+        return
+    
+    dominio = dominio.lower().replace('http://', '').replace('https://', '').replace('www.', '').split('/')[0]
+    config = get_config(interaction.guild.id)
+    
+    if dominio in config["whitelist_dominios"]:
+        config["whitelist_dominios"].remove(dominio)
+        bot.db.guardar_config(bot.config)
+        await interaction.response.send_message(
+            f"✅ Dominio **{dominio}** quitado de la whitelist.",
+            ephemeral=True
+        )
+    else:
+        await interaction.response.send_message(
+            f"⚠️ El dominio **{dominio}** no está en la whitelist.",
+            ephemeral=True
+        )
+
+@bot.tree.command(name="lista_whitelist", description="[ADMIN] Muestra todos los dominios en la whitelist")
+async def lista_whitelist(interaction: discord.Interaction):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ Solo administradores.", ephemeral=True)
+        return
+    
+    config = get_config(interaction.guild.id)
+    whitelist = config.get("whitelist_dominios", [])
+    
+    if not whitelist:
+        await interaction.response.send_message("⚠️ No hay dominios en la whitelist.", ephemeral=True)
+        return
+    
+    embed = discord.Embed(
+        title="✅ Whitelist de Dominios",
+        description=f"Dominios siempre permitidos en este servidor ({len(whitelist)})",
+        color=discord.Color.green()
+    )
+    
+    dominios_texto = "\n".join([f"• `{dom}`" for dom in whitelist[:20]])
+    if len(whitelist) > 20:
+        dominios_texto += f"\n*...y {len(whitelist) - 20} más*"
+    
+    embed.add_field(name="Dominios", value=dominios_texto, inline=False)
+    
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="lista_bloqueados", description="[ADMIN] Muestra dominios bloqueados personalizados")
+async def lista_bloqueados(interaction: discord.Interaction):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ Solo administradores.", ephemeral=True)
+        return
+    
+    guild_id = str(interaction.guild.id)
+    sitios = bot.sitios_personalizados.get(guild_id, set())
+    
+    if not sitios:
+        await interaction.response.send_message("⚠️ No hay dominios personalizados bloqueados.", ephemeral=True)
+        return
+    
+    embed = discord.Embed(
+        title="🔒 Dominios Bloqueados Personalizados",
+        description=f"Lista de dominios bloqueados en este servidor ({len(sitios)})",
+        color=discord.Color.red()
+    )
+    
+    sitios_lista = list(sitios)[:20]
+    dominios_texto = "\n".join([f"• `{dom}`" for dom in sitios_lista])
+    if len(sitios) > 20:
+        dominios_texto += f"\n*...y {len(sitios) - 20} más*"
+    
+    embed.add_field(name="Dominios", value=dominios_texto, inline=False)
+    
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @bot.tree.command(name="importar_sitios", description="[ADMIN] Importa sitios bloqueados desde archivo .txt")
 async def importar_sitios(interaction: discord.Interaction):
@@ -769,7 +1247,7 @@ async def importar_sitios(interaction: discord.Interaction):
         
         for attachment in msg.attachments:
             if attachment.filename.endswith('.txt'):
-                if attachment.size > 1024 * 1024:  # 1MB máximo
+                if attachment.size > 1024 * 1024:
                     await msg.reply("❌ Archivo demasiado grande (máximo 1MB).")
                     return
                 
@@ -789,6 +1267,8 @@ async def importar_sitios(interaction: discord.Interaction):
                         bot.sitios_personalizados[guild_id].add(sitio)
                         sitios_agregados += 1
                 
+                bot.db.guardar_sitios_personalizados(bot.sitios_personalizados)
+                
                 await msg.reply(
                     f"✅ Se han importado **{sitios_agregados}** sitios bloqueados correctamente."
                 )
@@ -807,6 +1287,7 @@ async def activar_antilinks(interaction: discord.Interaction):
     
     config = get_config(interaction.guild.id)
     config["activado"] = True
+    bot.db.guardar_config(bot.config)
     await interaction.response.send_message("✅ Sistema anti-links **ACTIVADO**.", ephemeral=True)
 
 @bot.tree.command(name="desactivar_antilinks", description="[ADMIN] Desactiva el sistema anti-links")
@@ -817,6 +1298,7 @@ async def desactivar_antilinks(interaction: discord.Interaction):
     
     config = get_config(interaction.guild.id)
     config["activado"] = False
+    bot.db.guardar_config(bot.config)
     await interaction.response.send_message("⚠️ Sistema anti-links **DESACTIVADO**.", ephemeral=True)
 
 @bot.tree.command(name="ver_configuracion", description="Muestra la configuración actual del bot")
@@ -862,7 +1344,7 @@ async def ver_configuracion(interaction: discord.Interaction):
     )
     embed.add_field(
         name="🌐 Sitios Bloqueados (Global)",
-        value=f"{len(bot.sitios_bloqueados)} dominios",
+        value=f"{len(bot.sitios_bloqueados):,} dominios",
         inline=True
     )
     embed.add_field(
@@ -938,6 +1420,7 @@ async def limpiar_infracciones(interaction: discord.Interaction, usuario: discor
     if guild_id in bot.infracciones and user_id in bot.infracciones[guild_id]:
         infracciones = bot.infracciones[guild_id][user_id]["count"]
         del bot.infracciones[guild_id][user_id]
+        bot.db.guardar_infracciones(bot.infracciones)
         await interaction.response.send_message(
             f"✅ Se limpiaron **{infracciones}** infracciones de {usuario.mention}.",
             ephemeral=True
@@ -1000,7 +1483,7 @@ async def galaxya06(interaction: discord.Interaction):
     embed = discord.Embed(
         title="📱 Samsung Galaxy A06 - Easter Egg",
         description="¡Has descubierto el secreto del Galaxy A06!",
-        color=0x1428A0  # Color azul Samsung
+        color=0x1428A0
     )
     
     embed.add_field(
@@ -1039,7 +1522,6 @@ async def galaxya06(interaction: discord.Interaction):
     )
     
     embed.set_footer(text="Samsung Galaxy A06 • Lanzado en 2024 • AEC Bot Easter Egg")
-    embed.set_thumbnail(url="https://i.imgur.com/8EhqgGQ.png")  # Placeholder
     
     bot.galaxy_a06_activado[guild_id] = True
     
@@ -1079,6 +1561,9 @@ async def ayuda_antilinks(interaction: discord.Interaction):
             "`/agregar_dominio_bloqueado` - Bloquea un dominio\n"
             "`/quitar_dominio_bloqueado` - Desbloquea un dominio\n"
             "`/agregar_whitelist` - Siempre permite un dominio\n"
+            "`/quitar_whitelist` - Quita dominio de whitelist\n"
+            "`/lista_whitelist` - Ver dominios permitidos\n"
+            "`/lista_bloqueados` - Ver dominios bloqueados\n"
             "`/importar_sitios` - Importa lista desde .txt"
         ),
         inline=False
@@ -1094,6 +1579,24 @@ async def ayuda_antilinks(interaction: discord.Interaction):
         ),
         inline=False
     )
+    
+    # Solo mostrar comandos de owner a los owners
+    if SecurityConfig.es_owner(interaction.user.id):
+        embed.add_field(
+            name="👑 Comandos de Owner",
+            value=(
+                "`/owner_stats` - Estadísticas globales\n"
+                "`/owner_servidores` - Lista de servidores\n"
+                "`/owner_save` - Guardar datos manualmente\n"
+                "`/owner_sync` - Sincronizar comandos\n"
+                "`/owner_blacklist_add` - Añadir a blacklist\n"
+                "`/owner_blacklist_remove` - Quitar de blacklist\n"
+                "`/owner_blacklist_list` - Ver blacklist\n"
+                "`/owner_shutdown` - Apagar bot\n"
+                "`/owner_eval` - Evaluar código Python"
+            ),
+            inline=False
+        )
     
     embed.add_field(
         name="🔍 Detección Avanzada",
@@ -1121,16 +1624,22 @@ async def ayuda_antilinks(interaction: discord.Interaction):
     
     await interaction.response.send_message(embed=embed)
 
-# ============ ARCHIVO .env ============
+# ============ FUNCIÓN PARA CREAR ARCHIVOS DE EJEMPLO ============
 
-def crear_archivo_env_ejemplo():
-    """Crea archivo .env.example si no existe"""
+def crear_archivos_ejemplo():
+    """Crea archivos de ejemplo si no existen"""
+    
+    # .env.example
     contenido_env = """# Configuración del Bot AEC Anti-links
 # Copia este archivo como .env y completa los valores
 
 # Token del bot de Discord (REQUERIDO)
 # Obtén tu token en: https://discord.com/developers/applications
 DISCORD_TOKEN=tu_token_aqui
+
+# Client ID del bot (REQUERIDO para registro de comandos)
+# Se encuentra en la sección General Information de tu aplicación
+CLIENT_ID=tu_client_id_aqui
 
 # ID del propietario del bot (REQUERIDO)
 # Tu ID de Discord (habilita modo desarrollador y haz clic derecho en tu perfil)
@@ -1144,21 +1653,74 @@ DEBUG_MODE=False
         with open('.env.example', 'w', encoding='utf-8') as f:
             f.write(contenido_env)
         print("✅ Archivo .env.example creado")
+    
+    # .gitignore
+    contenido_gitignore = """# Variables de entorno sensibles
+.env
+
+# Cache de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Archivos de datos (JSON)
+data/
+*.json
+
+# Archivos de configuración sensibles
+config.json
+
+# Archivos temporales
+temp/
+*.tmp
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+"""
+    
+    if not os.path.exists('.gitignore'):
+        with open('.gitignore', 'w', encoding='utf-8') as f:
+            f.write(contenido_gitignore)
+        print("✅ Archivo .gitignore creado")
+    
+    # requirements.txt
+    contenido_requirements = """discord.py>=2.3.0
+python-dotenv>=1.0.0
+aiohttp>=3.9.0
+"""
+    
+    if not os.path.exists('requirements.txt'):
+        with open('requirements.txt', 'w', encoding='utf-8') as f:
+            f.write(contenido_requirements)
+        print("✅ Archivo requirements.txt creado")
 
 # ============ EJECUTAR BOT ============
 
 if __name__ == "__main__":
-    # Crear archivo de ejemplo
-    crear_archivo_env_ejemplo()
+    # Crear archivos de ejemplo
+    crear_archivos_ejemplo()
     
     # Información de inicio
-    print("=" * 50)
+    print("=" * 60)
     print("🛡️  AEC ANTI-LINKS BOT v2.0")
-    print("=" * 50)
+    print("=" * 60)
     print("🔐 Sistema de Seguridad: ACTIVO")
     print(f"📊 Detección Avanzada: {len(bot.link_detector.patrones)} patrones")
     print(f"🔒 Caracteres Unicode Monitoreados: {len(SecurityConfig.CARACTERES_UNICODE_SOSPECHOSOS)}")
-    print("=" * 50)
+    print(f"👑 Owner Principal: {SecurityConfig.OWNER_ID}")
+    print(f"👑 Owners Adicionales: {SecurityConfig.ADDITIONAL_OWNERS}")
+    print(f"💾 Sistema de Persistencia JSON: ACTIVADO")
+    print("=" * 60)
     print("🚀 Iniciando bot...")
     print("")
     
@@ -1166,9 +1728,16 @@ if __name__ == "__main__":
         bot.run(SecurityConfig.TOKEN)
     except KeyboardInterrupt:
         print("\n⚠️ Bot detenido por el usuario")
+        print("💾 Guardando datos antes de salir...")
+        bot.db.guardar_config(bot.config)
+        bot.db.guardar_infracciones(bot.infracciones)
+        bot.db.guardar_sitios_personalizados(bot.sitios_personalizados)
+        bot.db.guardar_blacklist_global(bot.blacklist_global)
+        print("✅ Datos guardados correctamente")
     except Exception as e:
         print(f"\n❌ Error crítico: {e}")
         print("\n💡 Verifica que:")
-        print("  1. El archivo .env existe y contiene DISCORD_TOKEN")
+        print("  1. El archivo .env existe y contiene DISCORD_TOKEN y CLIENT_ID")
         print("  2. El token es válido")
         print("  3. Los intents están habilitados en Discord Developer Portal")
+        print("  4. Las dependencias están instaladas: pip install -r requirements.txt")
