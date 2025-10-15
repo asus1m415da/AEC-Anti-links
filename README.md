@@ -464,26 +464,6 @@ vender copias del Software.
 
 ---
 
-## 📞 Soporte
-
-Si necesitas ayuda o tienes preguntas:
-
-- 📧 **Email**: soporte@aec-bot.com
-- 💬 **Discord**: [Servidor de Soporte](https://discord.gg/tu-servidor)
-- 🐛 **Issues**: [GitHub Issues](https://github.com/tu-usuario/aec-antilinks-bot/issues)
-- 📖 **Documentación**: [Wiki del Proyecto](https://github.com/tu-usuario/aec-antilinks-bot/wiki)
-
----
-
-## 🙏 Agradecimientos
-
-- **URLhaus by abuse.ch** - Por proporcionar la API gratuita de URLs maliciosas
-- **Discord.py** - Por la excelente librería de Python
-- **Samsung Galaxy A06** - Inspiración para el Easter Egg
-- **Comunidad de Discord** - Por el feedback y sugerencias
-
----
-
 ## 📈 Roadmap
 
 Características planeadas para futuras versiones:
@@ -514,30 +494,3 @@ Si este proyecto te fue útil, ¡considera darle una estrella ⭐ en GitHub!
 [⬆ Volver arriba](#-aec-anti-links-bot)
 
 </div>
-```
-
-Este README incluye toda la información necesaria para instalar, configurar y usar el bot, además de secciones profesionales sobre seguridad, troubleshooting, contribuciones y el Easter Egg del Galaxy A06. Es un documento completo y profesional listo para usar en GitHub o cualquier repositorio.
-<span style="display:none">[^1][^10][^2][^3][^4][^5][^6][^7][^8][^9]</span>
-
-<div align="center">⁂</div>
-
-[^1]: https://translate.google.com/translate?u=https%3A%2F%2Fgithub.com%2Ftopics%2Fdiscord-bot-template\&hl=es\&sl=en\&tl=es\&client=srp
-
-[^2]: https://www.reddit.com/r/Discord_Bots/comments/1mognew/how_can_i_make_a_github_discord_bot_template_more/
-
-[^3]: https://www.reddit.com/r/learnprogramming/comments/1gg0p2v/discord_js_bot_template/
-
-[^4]: https://www.gptbots.ai/es_ES/blog/how-to-make-a-discord-bot-without-coding
-
-[^5]: https://www.aluracursos.com/blog/como-escribir-un-readme-increible-en-tu-github
-
-[^6]: https://www.ionos.com/es-us/digitalguide/paginas-web/desarrollo-web/archivo-readme/
-
-[^7]: https://www.hostinger.com/es/tutoriales/como-alojar-un-bot-de-discord
-
-[^8]: https://www.youtube.com/watch?v=nQ86C5Se_KE
-
-[^9]: http://codesandbox.io/p/github/yosseferrazik/discord-bot-template
-
-[^10]: https://www.digitalocean.com/community/tutorials/how-to-build-a-discord-bot-with-node-js-es
-
