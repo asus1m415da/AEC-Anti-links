@@ -84,7 +84,7 @@ Antes de instalar el bot, asegúrate de tener:
 Opción A - Con Git:
 ```
 
-git clone https://github.com/tu-usuario/aec-antilinks-bot.git
+git clone https://github.com/asus1m415da/AEC-Anti-links.git
 cd aec-antilinks-bot
 
 ```
