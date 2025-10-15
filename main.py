@@ -507,16 +507,16 @@ async def on_message(message):
     config = get_config(message.guild.id)
     
     if not config["activado"]:
-        await bot.process_commands(message)
+        # Comandos slash - no procesar comandos de texto
         return
     
     if message.author.guild_permissions.administrator:
-        await bot.process_commands(message)
+        # Comandos slash - no procesar comandos de texto
         return
     
     roles_usuario = [role.id for role in message.author.roles]
     if any(rol in config["roles_permitidos"] for rol in roles_usuario):
-        await bot.process_commands(message)
+        # Comandos slash - no procesar comandos de texto
         return
     
     texto_seguro = SecurityConfig.sanitizar_entrada(message.content)
@@ -535,7 +535,7 @@ async def on_message(message):
                 urls_filtradas.append((url, tipo))
         
         if not urls_filtradas:
-            await bot.process_commands(message)
+            # Comandos slash - no procesar comandos de texto
             return
         
         es_maliciosa = False
@@ -556,7 +556,7 @@ async def on_message(message):
             await message.delete()
         except discord.errors.Forbidden:
             print(f"⚠️ No tengo permisos para eliminar mensajes en {message.guild.name}")
-            await bot.process_commands(message)
+            # Comandos slash - no procesar comandos de texto
             return
         
         user_id = str(message.author.id)
@@ -690,7 +690,7 @@ async def on_message(message):
         except Exception as e:
             print(f"Error al procesar infracción: {e}")
     
-    await bot.process_commands(message)
+    # Comandos slash - no procesar comandos de texto
 
 # ============ COMANDOS NORMALES (continuación en siguiente mensaje por límite de caracteres) ============
 
