@@ -5,7 +5,7 @@ import json
 import re
 import aiohttp
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 from dotenv import load_dotenv
 from typing import Set, List, Tuple
@@ -30,7 +30,7 @@ class SecurityConfig:
     # Límites de seguridad
     MAX_MUTEO = 2419200  # 28 días máximo
     MIN_MUTEO = 60       # 1 minuto mínimo
-    MAX_ROLES_PERMITIDOS = 10
+    MAX_ROLES_PERMITIDOS = 100
     MAX_IMPORTACION_SITIOS = 10000
     
     # Caracteres Unicode sospechosos para bypass
@@ -382,12 +382,12 @@ class AECAntiLinks(commands.Bot):
         self.galaxy_a06_activado = {}
         
         # Estadísticas
-        self.start_time = datetime.utcnow()
+        self.start_time = datetime.now(timezone.utc)
         
     async def setup_hook(self):
         await self.tree.sync()
-        self.actualizar_base_maliciosa.start()
-        self.guardar_datos_periodicamente.start()
+        actualizar_base_maliciosa.start()
+        guardar_datos_periodicamente.start()
         print("🔐 Sistema de seguridad inicializado")
         print(f"👑 Owners: {SecurityConfig.OWNER_ID}, {SecurityConfig.ADDITIONAL_OWNERS}")
         
@@ -427,7 +427,7 @@ def get_config(guild_id):
 
 def verificar_rate_limit(user_id: int, comando: str, segundos: int = 5) -> bool:
     """Sistema anti-spam para comandos"""
-    ahora = datetime.utcnow()
+    ahora = datetime.now(timezone.utc)
     key = f"{user_id}:{comando}"
     
     if key in bot.command_cooldowns:
@@ -584,7 +584,7 @@ async def on_message(message):
         try:
             await message.author.timeout(timeout_hasta, reason="Envío de enlaces no autorizados - AEC Anti-links")
             bot.infracciones[guild_id][user_id]["muteos"] += 1
-            bot.infracciones[guild_id][user_id]["ultimo_muteo"] = datetime.utcnow()
+            bot.infracciones[guild_id][user_id]["ultimo_muteo"] = datetime.now(timezone.utc)
             
             tipo_deteccion = urls_filtradas[0][1] if urls_filtradas else "DESCONOCIDO"
             
@@ -627,7 +627,7 @@ async def on_message(message):
                     embed_log = discord.Embed(
                         title="📋 Registro de Infracción - AEC Anti-links",
                         color=discord.Color.red() if es_maliciosa else discord.Color.orange(),
-                        timestamp=datetime.utcnow()
+                        timestamp=datetime.now(timezone.utc)
                     )
                     
                     embed_log.add_field(
@@ -731,14 +731,14 @@ async def owner_stats(interaction: discord.Interaction):
     )
     
     total_usuarios = sum(g.member_count for g in bot.guilds)
-    uptime = datetime.utcnow() - bot.start_time
+    uptime = datetime.now(timezone.utc) - bot.start_time
     horas_uptime = uptime.total_seconds() // 3600
     
     embed = discord.Embed(
         title="📊 Estadísticas Globales - AEC Anti-links",
         description=f"Estadísticas del bot solicitadas por {interaction.user.mention}",
         color=discord.Color.gold(),
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )
     
     embed.add_field(name="🌐 Servidores Activos", value=len(bot.guilds), inline=True)
@@ -868,7 +868,7 @@ async def owner_blacklist_list(interaction: discord.Interaction):
     embed = discord.Embed(
         title="🚫 Blacklist Global",
         color=discord.Color.dark_red(),
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )
     
     usuarios_bl = bot.blacklist_global.get("usuarios", [])
@@ -930,7 +930,7 @@ async def owner_servidores(interaction: discord.Interaction):
         title=f"🌐 Servidores ({len(bot.guilds)})",
         description="Lista de servidores ordenados por miembros",
         color=discord.Color.blue(),
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )
     
     for i, guild in enumerate(guilds_ordenados[:15], 1):
@@ -1390,7 +1390,7 @@ async def estadisticas(interaction: discord.Interaction):
         title="📊 Estadísticas de Infracciones",
         description=f"Top 10 usuarios con más infracciones",
         color=discord.Color.gold(),
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )
     
     descripcion = ""
