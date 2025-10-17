@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AEC Anti-Links Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <div class="logo-icon">🛡️</div>
+                <h1>AEC Anti-Links</h1>
+            </div>
+            <div class="nav-stats">
+                <div class="stat-badge">
+                    <span class="stat-label">Servidores</span>
+                    <span class="stat-value" id="total-servers">0</span>
+                </div>
+                <div class="stat-badge">
+                    <span class="stat-label">Sitios Bloqueados</span>
+                    <span class="stat-value" id="total-blocked">0</span>
+                </div>
+                <div class="status-indicator online">
+                    <span class="status-dot"></span>
+                    <span>Online</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Navegación</h3>
+                <button class="sidebar-btn active" data-section="dashboard">
+                    <span class="btn-icon">📊</span>
+                    Dashboard
+                </button>
+                <button class="sidebar-btn" data-section="custom-sites">
+                    <span class="btn-icon">🔒</span>
+                    Sitios Personalizados
+                </button>
+                <button class="sidebar-btn" data-section="roles">
+                    <span class="btn-icon">👥</span>
+                    Roles Permitidos
+                </button>
+                <button class="sidebar-btn" data-section="anti-spam">
+                    <span class="btn-icon">🚫</span>
+                    Anti-Spam
+                </button>
+                <button class="sidebar-btn" data-section="import-export">
+                    <span class="btn-icon">📦</span>
+                    Importar/Exportar
+                </button>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Servidores</h3>
+                <div class="server-selector" id="server-list">
+                    <div class="loading-spinner">Cargando...</div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Content Area -->
+        <main class="content">
+            <!-- Dashboard Section -->
+            <section id="dashboard-section" class="content-section active">
+                <div class="section-header">
+                    <h2>Panel de Control</h2>
+                    <p>Gestiona la configuración del bot para tu servidor</p>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <span class="stat-icon">⚡</span>
+                            <h3>Estado del Sistema</h3>
+                        </div>
+                        <div class="stat-card-body">
+                            <div class="toggle-container">
+                                <label class="toggle-label">Sistema Anti-Links</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="toggle-antilinks" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="toggle-container">
+                                <label class="toggle-label">Detección Maliciosa</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="toggle-malicious" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <span class="stat-icon">⏱️</span>
+                            <h3>Configuración de Mute</h3>
+                        </div>
+                        <div class="stat-card-body">
+                            <div class="input-group">
+                                <label for="mute-duration">Duración (segundos)</label>
+                                <input type="number" id="mute-duration" class="form-input" value="300" min="60" max="2419200">
+                                <small class="input-hint">Entre 60 y 2,419,200 segundos (28 días)</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <span class="stat-icon">📊</span>
+                            <h3>Estadísticas</h3>
+                        </div>
+                        <div class="stat-card-body">
+                            <div class="stat-row">
+                                <span>Infracciones Totales</span>
+                                <span class="stat-number" id="total-infractions">0</span>
+                            </div>
+                            <div class="stat-row">
+                                <span>Usuarios Infractores</span>
+                                <span class="stat-number" id="total-offenders">0</span>
+                            </div>
+                            <div class="stat-row">
+                                <span>Uptime</span>
+                                <span class="stat-number" id="bot-uptime">0h</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <span class="stat-icon">✅</span>
+                            <h3>Whitelist de Dominios</h3>
+                        </div>
+                        <div class="stat-card-body">
+                            <div class="input-group">
+                                <input type="text" id="whitelist-input" class="form-input" placeholder="ejemplo.com">
+                                <button class="btn btn-primary" onclick="addWhitelistDomain()">
+                                    <span>➕</span> Agregar
+                                </button>
+                            </div>
+                            <div class="tag-list" id="whitelist-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-success btn-lg" onclick="saveConfiguration()">
+                        <span>💾</span> Guardar Configuración
+                    </button>
+                    <button class="btn btn-secondary btn-lg" onclick="loadConfiguration()">
+                        <span>🔄</span> Recargar
+                    </button>
+                </div>
+            </section>
+
+            <!-- Custom Sites Section -->
+            <section id="custom-sites-section" class="content-section">
+                <div class="section-header">
+                    <h2>Sitios Personalizados Bloqueados</h2>
+                    <p>Gestiona los dominios que deseas bloquear específicamente en tu servidor</p>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="stat-card full-width">
+                        <div class="stat-card-header">
+                            <span class="stat-icon">➕</span>
+                            <h3>Agregar Nuevo Sitio</h3>
+                        </div>
+                        <div class="stat-card-body">
+                            <div class="input-group horizontal">
+                                <input type="text" id="custom-site-input" class="form-input" placeholder="ejemplo.com">
+                                <button class="btn btn-primary" onclick="addCustomSite()">
+                                    <span>🔒</span> Bloquear Sitio
+                                </button>
+                            </div>
+                            <small class="input-hint">Ingresa el dominio sin http:// ni www. (ejemplo: google.com)</small>
+                        </div>
+                    </div>
+
+                    <div class="stat-card full-width">
+                        <div class="stat-card-header">
+                            <span class="stat-icon">📋</span>
+                            <h3>Sitios Bloqueados (<span id="custom-sites-count">0</span>)</h3>
+                        </div>
+                        <div class="stat-card-body">
+                            <div class="sites-list" id="custom-sites-list">
+                                <div class="empty-state">
+                                    <span class="empty-icon">🔍</span>
+                                    <p>No hay sitios personalizados bloqueados</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Roles Section -->
+            <section id="roles-section" class="content-section">
+                <div class="section-header">
+                    <h2>Roles Permitidos</h2>
+                    <p>Los usuarios con estos roles pueden enviar enlaces sin restricciones</p>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="stat-card full-width">
+                        <div class="stat-card-header">
+                            <span class="stat-icon">👥</span>
+                            <h3>Gestionar Roles</h3>
+                        </div>
+                        <div class="stat-card-body">
+                            <div class="input-group horizontal">
+                                <input type="text" id="role-id-input" class="form-input" placeholder="ID del rol (números)">
+                                <button class="btn btn-primary" onclick="addRole()">
+                                    <span>➕</span> Agregar Rol
+                                </button>
+                            </div>
+                            <small class="input-hint">Ingresa el ID del rol de Discord (habilita modo desarrollador y copia el ID)</small>
+                        </div>
+                    </div>
+
+                    <div class="stat-card full-width">
+                        <div class="stat-card-header">
+                            <span class="stat-icon">📋</span>
+                            <h3>Roles Permitidos (<span id="roles-count">0</span>)</h3>
+                        </div>
+                        <div class="stat-card-body">
+                            <div class="roles-list" id="roles-list">
+                                <div class="empty-state">
+                                    <span class="empty-icon">🎭</span>
+                                    <p>No hay roles permitidos configurados</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Anti-Spam Section -->
+            <section id="anti-spam-section" class="content-section">
+                <div class="section-header">
+                    <h2>Sistema Anti-Spam</h2>
+                    <p>Configura la detección y prevención de spam</p>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <span class="stat-icon">🚫</span>
+                            <h3>Estado Anti-Spam</h3>
+                        </div>
+                        <div class="stat-card-body">
+                            <div class="toggle-container">
+                                <label class="toggle-label">Sistema Anti-Spam</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="toggle-antispam" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <span class="stat-icon">🔢</span>
+                            <h3>Detección de Spam</h3>
+                        </div>
+                        <div class="stat-card-body">
+                            <div class="input-group">
+                                <label for="spam-messages">Mensajes Repetidos</label>
+                                <input type="number" id="spam-messages" class="form-input" value="5" min="2" max="10">
+                                <small class="input-hint">Número de mensajes iguales para detectar spam (2-10)</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <span class="stat-icon">⏱️</span>
+                            <h3>Ventana de Tiempo</h3>
+                        </div>
+                        <div class="stat-card-body">
+                            <div class="input-group">
+                                <label for="spam-time">Tiempo (segundos)</label>
+                                <input type="number" id="spam-time" class="form-input" value="10" min="5" max="30">
+                                <small class="input-hint">Tiempo para contar mensajes repetidos (5-30s)</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <span class="stat-icon">🔨</span>
+                            <h3>Duración del Mute</h3>
+                        </div>
+                        <div class="stat-card-body">
+                            <div class="input-group">
+                                <label for="spam-mute-duration">Duración (segundos)</label>
+                                <input type="number" id="spam-mute-duration" class="form-input" value="300" min="60" max="3600">
+                                <small class="input-hint">Tiempo de mute por spam (60-3600s)</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-success btn-lg" onclick="saveAntiSpamConfig()">
+                        <span>💾</span> Guardar Configuración Anti-Spam
+                    </button>
+                </div>
+            </section>
+
+            <!-- Import/Export Section -->
+            <section id="import-export-section" class="content-section">
+                <div class="section-header">
+                    <h2>Importar/Exportar Configuración</h2>
+                    <p>Realiza copias de seguridad o transfiere configuraciones entre servidores</p>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <span class="stat-icon">📤</span>
+                            <h3>Exportar Configuración</h3>
+                        </div>
+                        <div class="stat-card-body">
+                            <p class="card-description">
+                                Descarga la configuración actual de tu servidor en formato JSON
+                            </p>
+                            <button class="btn btn-primary btn-block" onclick="exportConfig()">
+                                <span>📥</span> Exportar a JSON
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <span class="stat-icon">📥</span>
+                            <h3>Importar Configuración</h3>
+                        </div>
+                        <div class="stat-card-body">
+                            <p class="card-description">
+                                Carga una configuración desde un archivo JSON
+                            </p>
+                            <input type="file" id="import-file" accept=".json" class="file-input" onchange="handleImportFile(event)">
+                            <label for="import-file" class="btn btn-secondary btn-block">
+                                <span>📂</span> Seleccionar Archivo
+                            </label>
+                            <button class="btn btn-success btn-block" id="import-btn" onclick="importConfig()" disabled>
+                                <span>📤</span> Importar Configuración
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <span id="toast-message"></span>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        let currentGuildId = null;
+        let currentConfig = null;
+        let importData = null;
+        let whitelistDomains = [];
+        let allowedRoles = [];
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadStats();
+            await loadGuilds();
+            setupEventListeners();
+        });
+
+        // Event Listeners
+        function setupEventListeners() {
+            document.querySelectorAll('.sidebar-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const section = btn.dataset.section;
+                    switchSection(section);
+                });
+            });
+        }
+
+        // Cambiar sección
+        function switchSection(sectionName) {
+            document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector(`[data-section="${sectionName}"]`).classList.add('active');
+
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            document.getElementById(`${sectionName}-section`).classList.add('active');
+        }
+
+        // Cargar estadísticas globales
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+
+                if (data.success) {
+                    document.getElementById('total-servers').textContent = data.data.servidores;
+                    document.getElementById('total-blocked').textContent = data.data.sitios_bloqueados.toLocaleString();
+                    document.getElementById('total-infractions').textContent = data.data.infracciones_totales.toLocaleString();
+                    document.getElementById('total-offenders').textContent = data.data.usuarios_infractores.toLocaleString();
+                    document.getElementById('bot-uptime').textContent = data.data.uptime_horas + 'h';
+                }
+            } catch (error) {
+                console.error('Error cargando estadísticas:', error);
+            }
+        }
+
+        // Cargar lista de servidores
+        async function loadGuilds() {
+            try {
+                const response = await fetch('/api/guilds');
+                const data = await response.json();
+
+                if (data.success) {
+                    const serverList = document.getElementById('server-list');
+                    serverList.innerHTML = '';
+
+                    data.data.forEach((guild, index) => {
+                        const serverBtn = document.createElement('button');
+                        serverBtn.className = 'server-item' + (index === 0 ? ' active' : '');
+                        serverBtn.innerHTML = `
+                            ${guild.icon ? `<img src="${guild.icon}" alt="${guild.nombre}" class="server-icon">` : '<div class="server-icon-placeholder">🏠</div>'}
+                            <div class="server-info">
+                                <div class="server-name">${guild.nombre}</div>
+                                <div class="server-members">${guild.miembros} miembros</div>
+                            </div>
+                            <span class="server-status ${guild.activo ? 'active' : 'inactive'}"></span>
+                        `;
+                        serverBtn.onclick = () => selectGuild(guild.id, serverBtn);
+                        serverList.appendChild(serverBtn);
+                    });
+
+                    if (data.data.length > 0) {
+                        await selectGuild(data.data[0].id, document.querySelector('.server-item'));
+                    }
+                }
+            } catch (error) {
+                console.error('Error cargando servidores:', error);
+                showToast('Error al cargar servidores', 'error');
+            }
+        }
+
+        // Seleccionar servidor
+        async function selectGuild(guildId, element) {
+            document.querySelectorAll('.server-item').forEach(s => s.classList.remove('active'));
+            element.classList.add('active');
+
+            currentGuildId = guildId;
+            await loadConfiguration();
+        }
+
+        // Cargar configuración del servidor
+        async function loadConfiguration() {
+            if (!currentGuildId) return;
+
+            try {
+                const response = await fetch(`/api/config/${currentGuildId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    currentConfig = data.data;
+
+                    document.getElementById('toggle-antilinks').checked = currentConfig.activado;
+                    document.getElementById('toggle-malicious').checked = currentConfig.detectar_maliciosos;
+                    document.getElementById('mute-duration').value = currentConfig.tiempo_muteo;
+
+                    document.getElementById('toggle-antispam').checked = currentConfig.anti_spam_activado !== false;
+                    document.getElementById('spam-messages').value = currentConfig.anti_spam_mensajes || 5;
+                    document.getElementById('spam-time').value = currentConfig.anti_spam_tiempo || 10;
+                    document.getElementById('spam-mute-duration').value = currentConfig.anti_spam_mute_duracion || 300;
+
+                    whitelistDomains = currentConfig.whitelist_dominios || [];
+                    renderWhitelist();
+
+                    allowedRoles = currentConfig.roles_permitidos || [];
+                    renderRoles();
+
+                    renderCustomSites(currentConfig.sitios_personalizados || []);
+
+                    showToast('Configuración cargada correctamente', 'success');
+                }
+            } catch (error) {
+                console.error('Error cargando configuración:', error);
+                showToast('Error al cargar configuración', 'error');
+            }
+        }
+
+        // Guardar configuración
+        async function saveConfiguration() {
+            if (!currentGuildId) {
+                showToast('Selecciona un servidor primero', 'error');
+                return;
+            }
+
+            const config = {
+                activado: document.getElementById('toggle-antilinks').checked,
+                detectar_maliciosos: document.getElementById('toggle-malicious').checked,
+                tiempo_muteo: parseInt(document.getElementById('mute-duration').value),
+                whitelist_dominios: whitelistDomains,
+                roles_permitidos: allowedRoles
+            };
+
+            try {
+                const response = await fetch(`/api/config/${currentGuildId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast('Configuración guardada correctamente', 'success');
+                } else {
+                    showToast('Error: ' + data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Error guardando configuración:', error);
+                showToast('Error al guardar configuración', 'error');
+            }
+        }
+
+        // Guardar configuración anti-spam
+        async function saveAntiSpamConfig() {
+            if (!currentGuildId) {
+                showToast('Selecciona un servidor primero', 'error');
+                return;
+            }
+
+            const config = {
+                anti_spam_activado: document.getElementById('toggle-antispam').checked,
+                anti_spam_mensajes: parseInt(document.getElementById('spam-messages').value),
+                anti_spam_tiempo: parseInt(document.getElementById('spam-time').value),
+                anti_spam_mute_duracion: parseInt(document.getElementById('spam-mute-duration').value)
+            };
+
+            try {
+                const response = await fetch(`/api/config/${currentGuildId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast('Configuración anti-spam guardada', 'success');
+                } else {
+                    showToast('Error: ' + data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Error guardando configuración:', error);
+                showToast('Error al guardar configuración', 'error');
+            }
+        }
+
+        // Agregar dominio a whitelist
+        function addWhitelistDomain() {
+            const input = document.getElementById('whitelist-input');
+            const domain = input.value.trim().toLowerCase();
+
+            if (!domain) {
+                showToast('Ingresa un dominio válido', 'error');
+                return;
+            }
+
+            if (whitelistDomains.includes(domain)) {
+                showToast('Este dominio ya está en la whitelist', 'error');
+                return;
+            }
+
+            whitelistDomains.push(domain);
+            renderWhitelist();
+            input.value = '';
+            showToast('Dominio agregado a la whitelist', 'success');
+        }
+
+        // Renderizar whitelist
+        function renderWhitelist() {
+            const list = document.getElementById('whitelist-list');
+            list.innerHTML = '';
+
+            whitelistDomains.forEach(domain => {
+                const tag = document.createElement('span');
+                tag.className = 'tag tag-success';
+                tag.innerHTML = `
+                    ${domain}
+                    <button class="tag-close" onclick="removeWhitelistDomain('${domain}')">×</button>
+                `;
+                list.appendChild(tag);
+            });
+        }
+
+        // Eliminar dominio de whitelist
+        function removeWhitelistDomain(domain) {
+            whitelistDomains = whitelistDomains.filter(d => d !== domain);
+            renderWhitelist();
+            showToast('Dominio eliminado de la whitelist', 'success');
+        }
+
+        // Agregar sitio personalizado
+        async function addCustomSite() {
+            if (!currentGuildId) {
+                showToast('Selecciona un servidor primero', 'error');
+                return;
+            }
+
+            const input = document.getElementById('custom-site-input');
+            const site = input.value.trim().toLowerCase();
+
+            if (!site) {
+                showToast('Ingresa un dominio válido', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/custom-sites/${currentGuildId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sitio: site })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    input.value = '';
+                    await loadConfiguration();
+                    showToast('Sitio bloqueado correctamente', 'success');
+                } else {
+                    showToast('Error: ' + data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Error agregando sitio:', error);
+                showToast('Error al agregar sitio', 'error');
+            }
+        }
+
+        // Renderizar sitios personalizados
+        function renderCustomSites(sites) {
+            const list = document.getElementById('custom-sites-list');
+            const count = document.getElementById('custom-sites-count');
+
+            count.textContent = sites.length;
+
+            if (sites.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <span class="empty-icon">🔍</span>
+                        <p>No hay sitios personalizados bloqueados</p>
+                    </div>
+                `;
+                return;
+            }
+
+            list.innerHTML = '';
+            sites.forEach(site => {
+                const item = document.createElement('div');
+                item.className = 'list-item';
+                item.innerHTML = `
+                    <span class="list-item-icon">🔒</span>
+                    <span class="list-item-text">${site}</span>
+                    <button class="btn-icon-delete" onclick="removeCustomSite('${site}')">
+                        <span>🗑️</span>
+                    </button>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        // Eliminar sitio personalizado
+        async function removeCustomSite(site) {
+            if (!currentGuildId) return;
+
+            try {
+                const response = await fetch(`/api/custom-sites/${currentGuildId}/${encodeURIComponent(site)}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    await loadConfiguration();
+                    showToast('Sitio desbloqueado correctamente', 'success');
+                } else {
+                    showToast('Error: ' + data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Error eliminando sitio:', error);
+                showToast('Error al eliminar sitio', 'error');
+            }
+        }
+
+        // Agregar rol
+        function addRole() {
+            const input = document.getElementById('role-id-input');
+            const roleId = input.value.trim();
+
+            if (!roleId || isNaN(roleId)) {
+                showToast('Ingresa un ID de rol válido', 'error');
+                return;
+            }
+
+            if (allowedRoles.includes(parseInt(roleId))) {
+                showToast('Este rol ya está en la lista', 'error');
+                return;
+            }
+
+            allowedRoles.push(parseInt(roleId));
+            renderRoles();
+            input.value = '';
+            showToast('Rol agregado correctamente', 'success');
+        }
+
+        // Renderizar roles
+        function renderRoles() {
+            const list = document.getElementById('roles-list');
+            const count = document.getElementById('roles-count');
+
+            count.textContent = allowedRoles.length;
+
+            if (allowedRoles.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <span class="empty-icon">🎭</span>
+                        <p>No hay roles permitidos configurados</p>
+                    </div>
+                `;
+                return;
+            }
+
+            list.innerHTML = '';
+            allowedRoles.forEach(roleId => {
+                const item = document.createElement('div');
+                item.className = 'list-item';
+                item.innerHTML = `
+                    <span class="list-item-icon">👥</span>
+                    <span class="list-item-text">Rol ID: ${roleId}</span>
+                    <button class="btn-icon-delete" onclick="removeRole(${roleId})">
+                        <span>🗑️</span>
+                    </button>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        // Eliminar rol
+        function removeRole(roleId) {
+            allowedRoles = allowedRoles.filter(r => r !== roleId);
+            renderRoles();
+            showToast('Rol eliminado correctamente', 'success');
+        }
+
+        // Exportar configuración
+        async function exportConfig() {
+            if (!currentGuildId) {
+                showToast('Selecciona un servidor primero', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/export/${currentGuildId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `config_${currentGuildId}_${Date.now()}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Configuración exportada correctamente', 'success');
+                } else {
+                    showToast('Error: ' + data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Error exportando configuración:', error);
+                showToast('Error al exportar configuración', 'error');
+            }
+        }
+
+        // Manejar archivo de importación
+        function handleImportFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    importData = JSON.parse(e.target.result);
+                    document.getElementById('import-btn').disabled = false;
+                    showToast('Archivo cargado correctamente', 'success');
+                } catch (error) {
+                    showToast('Error: Archivo JSON inválido', 'error');
+                    importData = null;
+                    document.getElementById('import-btn').disabled = true;
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Importar configuración
+        async function importConfig() {
+            if (!currentGuildId || !importData) {
+                showToast('Carga un archivo primero', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/import/${currentGuildId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(importData)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    await loadConfiguration();
+                    showToast('Configuración importada correctamente', 'success');
+                    importData = null;
+                    document.getElementById('import-file').value = '';
+                    document.getElementById('import-btn').disabled = true;
+                } else {
+                    showToast('Error: ' + data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Error importando configuración:', error);
+                showToast('Error al importar configuración', 'error');
+            }
+        }
+
+        // Mostrar toast
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+
+            toast.className = `toast toast-${type} show`;
+            toastMessage.textContent = message;
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Actualizar estadísticas cada 30 segundos
+        setInterval(loadStats, 30000);
+    </script>
+</body>
+</html>
