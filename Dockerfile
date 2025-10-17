@@ -13,6 +13,7 @@ ENV PYTHONUNBUFFERED=1 \
 # Instalar dependencias del sistema necesarias
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiar requirements.txt primero para aprovechar cache de Docker
@@ -25,13 +26,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY main.py .
 COPY index.html .
 COPY style.css .
-COPY .env .
 
 # Crear directorio de datos
 RUN mkdir -p /app/data
 
 # Exponer puerto del dashboard
 EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:5000/health || exit 1
 
 # Comando para ejecutar el bot
 CMD ["python", "-u", "main.py"]
